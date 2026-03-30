@@ -6,7 +6,6 @@ import { useSessionStore } from '@/stores/sessionStore'
 export default function ResultPage() {
   const navigate = useNavigate()
   const {
-    problemText,
     subject,
     understandingLevel,
     understoodPoints,

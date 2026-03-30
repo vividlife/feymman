@@ -3,21 +3,14 @@ import { useSessionStore } from '@/stores/sessionStore'
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
 
   const {
-    sessionId,
     problemText,
     subject,
     setSessionId,
     setState,
     addMessage,
     updateCurrentTranscript,
-    setUnderstandingLevel,
-    addUnderstoodPoint,
-    addUnclearPoint,
-    removeUnclearPoint,
   } = useSessionStore()
 
   const connect = useCallback(() => {
@@ -86,12 +79,9 @@ export function useWebSocket() {
     wsRef.current = ws
   }, [problemText, subject, setSessionId, setState, addMessage, updateCurrentTranscript])
 
-  const sendAudio = useCallback((audioData: Blob) => {
+  const sendAudio = useCallback((_audioData: Blob) => {
     // 简化：直接发送音频 blob
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      // 这里需要将 blob 转为 base64 发送
-      // 实际实现中需要使用 input_audio_buffer.append 事件
-    }
+    // TODO: 实现实际音频发送
   }, [])
 
   const disconnect = useCallback(() => {

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import AudioRecorder from '@/components/AudioRecorder'
-import AudioPlayer from '@/components/AudioPlayer'
 import UnderstandingTracker from '@/components/UnderstandingTracker'
 import ConversationBubble from '@/components/ConversationBubble'
 import { Button } from '@/components/ui/button'
@@ -19,7 +18,6 @@ export default function SessionPage() {
     subject,
     messages,
     currentTranscript,
-    understandingLevel,
     setProblemText,
     setSubject,
   } = useSessionStore()
@@ -99,7 +97,6 @@ export default function SessionPage() {
       <div className="bg-white border-t p-4">
         <div className="container mx-auto max-w-2xl flex justify-center gap-4">
           <AudioRecorder
-            onAudioData={() => {}}
             isRecording={isRecording}
             onToggleRecording={handleToggleRecording}
           />

@@ -1,13 +1,11 @@
-import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 
 interface AudioRecorderProps {
-  onAudioData: (data: Blob) => void
   isRecording: boolean
   onToggleRecording: () => void
 }
 
-export default function AudioRecorder({ onAudioData, isRecording, onToggleRecording }: AudioRecorderProps) {
+export default function AudioRecorder({ isRecording, onToggleRecording }: AudioRecorderProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <Button
