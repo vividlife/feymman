@@ -17,10 +17,13 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
     setState('connecting')
-    const ws = new WebSocket(`ws://localhost:3000`)
+    console.log('[WS] Connecting to ws://localhost:8082...')
+    const ws = new WebSocket(`ws://localhost:8082`)
 
     ws.onopen = () => {
+      console.log('[WS] Connected!')
       // 初始化会话
+      console.log('[WS] Sending session.init:', { problemText, subject })
       ws.send(JSON.stringify({
         type: 'session.init',
         problemText,
@@ -29,10 +32,12 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (event) => {
+      console.log('[WS] Received:', event.data)
       const data = JSON.parse(event.data)
 
       switch (data.type) {
         case 'session.created':
+          console.log('[WS] Session created:', data.sessionId)
           setSessionId(data.sessionId)
           setState('listening')
           break
@@ -60,28 +65,59 @@ export function useWebSocket() {
             timestamp: new Date(),
           })
           break
+        case 'response.created':
+          console.log('[WS] AI started responding')
+          setState('responding')
+          break
+        case 'response.done':
+          console.log('[WS] AI finished responding')
+          setState('listening')
+          break
         case 'error':
-          console.error('WS error:', data.message)
+          console.error('[WS] Error:', data.message)
           setState('error')
           break
       }
     }
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
+      console.error('[WS] WebSocket error:', error)
       setState('error')
     }
 
     ws.onclose = () => {
+      console.log('[WS] Connection closed')
       setState('idle')
     }
 
     wsRef.current = ws
   }, [problemText, subject, setSessionId, setState, addMessage, updateCurrentTranscript])
 
-  const sendAudio = useCallback((_audioData: Blob) => {
-    // 简化：直接发送音频 blob
-    // TODO: 实现实际音频发送
+  // 发送音频数据到后端
+  const sendAudioMessage = useCallback((audioBase64: string) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      console.error('[WS] Cannot send audio - WebSocket not connected')
+      return
+    }
+
+    console.log('[WS] Sending audio data, length:', audioBase64.length)
+    wsRef.current.send(JSON.stringify({
+      type: 'input_audio_buffer.append',
+      audio: audioBase64,
+    }))
+  }, [])
+
+  // 提交音频缓冲区
+  const commitAudio = useCallback(() => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      console.error('[WS] Cannot commit audio - WebSocket not connected')
+      return
+    }
+
+    console.log('[WS] Committing audio buffer')
+    wsRef.current.send(JSON.stringify({
+      type: 'input_audio_buffer.commit',
+    }))
   }, [])
 
   const disconnect = useCallback(() => {
@@ -95,5 +131,5 @@ export function useWebSocket() {
     }
   }, [disconnect])
 
-  return { connect, disconnect, sendAudio }
+  return { connect, disconnect, sendAudioMessage, commitAudio }
 }

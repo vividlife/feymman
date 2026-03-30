@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import AudioRecorder from '@/components/AudioRecorder'
 import UnderstandingTracker from '@/components/UnderstandingTracker'
 import ConversationBubble from '@/components/ConversationBubble'
@@ -9,7 +10,6 @@ import { Button } from '@/components/ui/button'
 
 export default function SessionPage() {
   const navigate = useNavigate()
-  const [isRecording, setIsRecording] = useState(false)
 
   const {
     sessionId,
@@ -22,7 +22,8 @@ export default function SessionPage() {
     setSubject,
   } = useSessionStore()
 
-  const { connect, disconnect } = useWebSocket()
+  const { connect, disconnect, sendAudioMessage, commitAudio } = useWebSocket()
+  const { isRecording, startRecording, stopRecording, getAudioBase64 } = useAudioRecorder()
 
   // 从 sessionStorage 恢复数据
   useEffect(() => {
@@ -32,22 +33,43 @@ export default function SessionPage() {
     if (savedSubject) setSubject(savedSubject)
   }, [setProblemText, setSubject])
 
-  // 自动连接
+  // 自动连接 - 只在 problemText 改变且没有 sessionId 时连接
   useEffect(() => {
     if (!sessionId && problemText) {
+      console.log('[SessionPage] Connecting WebSocket...')
       connect()
     }
+  }, [problemText])
+
+  // 组件卸载时断开连接
+  useEffect(() => {
     return () => {
+      console.log('[SessionPage] Unmounting, disconnecting...')
       disconnect()
     }
-  }, [sessionId, problemText, connect, disconnect])
+  }, [])
 
-  const handleToggleRecording = () => {
-    setIsRecording(!isRecording)
-    // TODO: 实际控制麦克风录制
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      // 停止录音并发送
+      await stopRecording()
+      const base64 = await getAudioBase64()
+      if (base64) {
+        console.log('[SessionPage] Sending audio, length:', base64.length)
+        sendAudioMessage(base64)
+        // 提交音频缓冲区
+        commitAudio()
+      }
+    } else {
+      // 开始录音
+      await startRecording()
+    }
   }
 
   const handleEnd = () => {
+    if (isRecording) {
+      stopRecording()
+    }
     disconnect()
     navigate('/result')
   }
@@ -64,8 +86,9 @@ export default function SessionPage() {
             </div>
             <span className="text-sm text-blue-500">
               {state === 'listening' && '等待你讲解...'}
-              {state === 'responding' && 'AI 思考中...'}
+              {state === 'responding' && 'AI 回复中...'}
               {state === 'connecting' && '连接中...'}
+              {state === 'idle' && '未连接'}
             </span>
           </div>
         </div>

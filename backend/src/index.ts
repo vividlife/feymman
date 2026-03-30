@@ -13,12 +13,12 @@ app.get('/health', (_, res) => {
 })
 
 // 启动 HTTP 服务器（预留后续 REST API）
-const httpServer = app.listen(3001, () => {
-  console.log('HTTP Server running on port 3001')
+const httpServer = app.listen(8081, () => {
+  console.log('HTTP Server running on port 8081')
 })
 
 // 启动 WebSocket 服务器
-const wsServer = new FeynmanWSServer(3000)
+const wsServer = new FeynmanWSServer(8082)
 wsServer.start()
 
 console.log('Feynman Backend started')

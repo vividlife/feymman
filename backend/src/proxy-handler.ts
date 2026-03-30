@@ -34,29 +34,39 @@ export class ProxyHandler {
       throw new Error('DASHSCOPE_API_KEY not configured')
     }
 
+    console.log('[ProxyHandler] API Key loaded:', apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT LOADED')
+    console.log('[ProxyHandler] Connecting to Qwen:', QWEN_WS_URL)
+
     return new Promise((resolve, reject) => {
-      this.serverWs = new WebSocket(QWEN_WS_URL, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-      })
+      const headers = {
+        Authorization: `Bearer ${apiKey}`,
+      }
+      console.log('[ProxyHandler] Headers:', JSON.stringify(headers))
+
+      this.serverWs = new WebSocket(QWEN_WS_URL, { headers })
 
       this.serverWs.on('open', () => {
+        console.log('[ProxyHandler] Connected to Qwen!')
         this.sendSessionConfig()
         resolve()
       })
 
       this.serverWs.on('message', (data) => {
+        console.log('[ProxyHandler] Received from Qwen:', JSON.stringify(data).substring(0, 100))
         this.forwardToClient(data)
       })
 
       this.serverWs.on('error', (err) => {
-        console.error('Server WS error:', err)
+        console.error('[ProxyHandler] Server WS error:', err.message, err.code)
         reject(err)
       })
 
-      this.serverWs.on('close', () => {
-        this.clientWs.close()
+      this.serverWs.on('close', (code, reason) => {
+        console.log('[ProxyHandler] Qwen connection closed. Code:', code, 'Reason:', reason?.toString())
+        // Only close client if not already closed
+        if (this.clientWs.readyState === WebSocket.OPEN) {
+          this.clientWs.close()
+        }
       })
     })
   }
@@ -111,6 +121,14 @@ export class ProxyHandler {
 
     try {
       const message = JSON.parse(data as string)
+
+      // Log audio messages
+      if (message.type === 'input_audio_buffer.append') {
+        console.log('[ProxyHandler] Received audio buffer, audio length:', message.audio?.length)
+      } else {
+        console.log('[ProxyHandler] Forwarding message:', message.type)
+      }
+
       // 处理打断
       if (message.type === 'input_audio_buffer.speech_started') {
         if (this.isResponsing) {
@@ -120,6 +138,7 @@ export class ProxyHandler {
       }
       this.serverWs.send(data as string)
     } catch {
+      console.log('[ProxyHandler] Forwarding raw binary data')
       this.serverWs.send(data as string)
     }
   }
