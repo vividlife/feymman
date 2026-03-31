@@ -41,6 +41,14 @@ export function useWebSocket() {
           setSessionId(data.sessionId)
           setState('listening')
           break
+        case 'session.updated':
+          // 服务器返回的是 session.updated，包含完整的 session 对象
+          console.log('[WS] Session updated, id:', data.session?.id)
+          if (data.session?.id) {
+            setSessionId(data.session.id)
+          }
+          setState('listening')
+          break
         case 'response.audio_transcript.delta':
           updateCurrentTranscript((useSessionStore.getState().currentTranscript || '') + data.delta)
           break
