@@ -5,7 +5,12 @@ import { useAudioRecorder } from './useAudioRecorder'
 // Mock MediaRecorder
 const mockMediaRecorder = {
   start: vi.fn(),
-  stop: vi.fn(),
+  stop: vi.fn(() => {
+    // Automatically call onstop when stop is called
+    if (mockMediaRecorder.onstop) {
+      mockMediaRecorder.onstop()
+    }
+  }),
   ondataavailable: null as ((event: { data: Blob }) => void) | null,
   onstart: null as (() => void) | null,
   onstop: null as (() => void) | null,
@@ -22,6 +27,13 @@ const mockStream = {
 describe('useAudioRecorder', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+
+    // Reset mockMediaRecorder handlers
+    mockMediaRecorder.ondataavailable = null
+    mockMediaRecorder.onstart = null
+    mockMediaRecorder.onstop = null
+    mockMediaRecorder.onerror = null
+    mockMediaRecorder.state = 'inactive'
 
     // Mock navigator.mediaDevices with getUserMedia
     const mediaDevices = {
@@ -81,13 +93,9 @@ describe('useAudioRecorder', () => {
       }
     })
 
-    // Simulate stop being called and onstop being triggered
+    // stop() now automatically triggers onstop in the mock
     await act(async () => {
       await result.current.stopRecording()
-      // Trigger onstop callback manually since stop() doesn't do it automatically in mock
-      if (mockMediaRecorder.onstop) {
-        mockMediaRecorder.onstop()
-      }
     })
 
     expect(result.current.audioBlob).toBeTruthy()
@@ -109,9 +117,6 @@ describe('useAudioRecorder', () => {
 
     await act(async () => {
       await result.current.stopRecording()
-      if (mockMediaRecorder.onstop) {
-        mockMediaRecorder.onstop()
-      }
     })
 
     const base64 = await result.current.getAudioBase64()

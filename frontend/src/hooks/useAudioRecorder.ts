@@ -5,7 +5,7 @@ export interface UseAudioRecorderReturn {
   audioBlob: Blob | null
   startRecording: () => Promise<void>
   stopRecording: () => Promise<void>
-  getAudioBase64: () => string | null
+  getAudioBase64: () => Promise<string | null>
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
@@ -13,6 +13,8 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const stopResolveRef = useRef<(() => void) | null>(null)
 
   const startRecording = useCallback(async () => {
     try {
@@ -26,6 +28,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       console.log('[AudioRecorder] Using mimeType:', mimeType)
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      streamRef.current = stream
       console.log('[AudioRecorder] MediaRecorder created, state:', mediaRecorder.state)
 
       mediaRecorder.ondataavailable = (event) => {
@@ -45,7 +48,12 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         console.log('[AudioRecorder] Created blob, size:', blob.size)
         setAudioBlob(blob)
         audioChunksRef.current = []
-        stream.getTracks().forEach(track => track.stop())
+        streamRef.current?.getTracks().forEach(track => track.stop())
+        // 调用 stopRecording 中设置的 resolve
+        if (stopResolveRef.current) {
+          stopResolveRef.current()
+          stopResolveRef.current = null
+        }
       }
 
       mediaRecorder.onerror = (event) => {
@@ -65,10 +73,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   }, [])
 
   const stopRecording = useCallback(async () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-    }
+    return new Promise<void>((resolve) => {
+      if (mediaRecorderRef.current && isRecording) {
+        stopResolveRef.current = resolve
+        setIsRecording(false)
+        mediaRecorderRef.current.stop()
+      } else {
+        resolve()
+      }
+    })
   }, [isRecording])
 
   const getAudioBase64 = useCallback(async (): Promise<string | null> => {
