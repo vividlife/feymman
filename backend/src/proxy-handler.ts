@@ -18,7 +18,7 @@ export class ProxyHandler {
   private problemText: string
   private subject: string
   private onSessionComplete?: (sessionId: string) => void
-  private isResponsing = false
+  private isResponding = false
 
   constructor(options: ProxyHandlerOptions) {
     this.sessionId = options.sessionId
@@ -112,9 +112,15 @@ export class ProxyHandler {
 
       // Track responding state for speech interruption
       if (event.type === 'response.created') {
-        this.isResponsing = true
+        this.isResponding = true
       } else if (event.type === 'response.done') {
-        this.isResponsing = false
+        this.isResponding = false
+      }
+
+      // Handle speech interruption: cancel AI response when user starts speaking
+      if (event.type === 'input_audio_buffer.speech_started' && this.isResponding) {
+        this.serverWs?.send(JSON.stringify({ type: 'response.cancel' }))
+        this.isResponding = false
       }
 
       this.clientWs.send(JSON.stringify(event))
@@ -136,13 +142,6 @@ export class ProxyHandler {
         if (DEBUG) console.log('[ProxyHandler] Forwarding message:', message.type)
       }
 
-      // 处理打断
-      if (message.type === 'input_audio_buffer.speech_started') {
-        if (this.isResponsing) {
-          this.serverWs.send(JSON.stringify({ type: 'response.cancel' }))
-          this.isResponsing = false
-        }
-      }
       this.serverWs.send(data as string)
     } catch {
       if (DEBUG) console.log('[ProxyHandler] Forwarding raw binary data')

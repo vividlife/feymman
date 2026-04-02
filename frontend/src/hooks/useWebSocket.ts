@@ -30,7 +30,13 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
+      let data: any
+      try {
+        data = JSON.parse(event.data)
+      } catch {
+        console.error('[WS] Failed to parse message')
+        return
+      }
 
       switch (data.type) {
         case 'session.created':

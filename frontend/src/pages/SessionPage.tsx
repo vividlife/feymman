@@ -74,6 +74,8 @@ export default function SessionPage() {
   useEffect(() => {
     return () => {
       disconnect()
+      audioContextRef.current?.close()
+      audioContextRef.current = null
     }
   }, [disconnect])
 
