@@ -14,6 +14,7 @@ export function useWebSocket() {
   } = useSessionStore()
 
   const connect = useCallback(() => {
+    // Skip if already connected or connecting
     if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) return
 
     setState('connecting')
@@ -21,7 +22,6 @@ export function useWebSocket() {
     const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
-      // 初始化会话
       ws.send(JSON.stringify({
         type: 'session.init',
         problemText,
@@ -30,17 +30,18 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (event) => {
+      // Ignore messages from stale WebSocket
+      if (ws !== wsRef.current) return
+
       let data: any
       try {
         data = JSON.parse(event.data)
       } catch {
-        console.error('[WS] Failed to parse message')
         return
       }
 
       switch (data.type) {
         case 'session.created':
-          // Our backend sends sessionId; Qwen sends session.id — handle both
           if (data.sessionId) {
             setSessionId(data.sessionId)
           }
@@ -52,7 +53,7 @@ export function useWebSocket() {
         case 'response.audio_transcript.delta':
           updateCurrentTranscript((useSessionStore.getState().currentTranscript || '') + data.delta)
           break
-        case 'response.audio_transcript.done':
+        case 'response.audio_transcript.done': {
           const transcript = useSessionStore.getState().currentTranscript
           if (transcript) {
             addMessage({
@@ -65,6 +66,7 @@ export function useWebSocket() {
           }
           setState('listening')
           break
+        }
         case 'response.audio.delta':
           useSessionStore.getState().addAudioChunk(data.delta)
           break
@@ -89,24 +91,23 @@ export function useWebSocket() {
       }
     }
 
-    ws.onerror = (error) => {
-      console.error('[WS] WebSocket error:', error)
+    ws.onerror = () => {
+      // Only update state if this is still the active WebSocket
+      if (ws !== wsRef.current) return
       setState('error')
     }
 
     ws.onclose = () => {
+      // Only update state if this is still the active WebSocket
+      if (ws !== wsRef.current) return
       setState('idle')
     }
 
     wsRef.current = ws
   }, [problemText, subject, setSessionId, setState, addMessage, updateCurrentTranscript])
 
-  // 发送音频数据到后端
   const sendAudioMessage = useCallback((audioBase64: string) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      console.error('[WS] Cannot send audio - WebSocket not connected')
-      return
-    }
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return
 
     wsRef.current.send(JSON.stringify({
       type: 'input_audio_buffer.append',
@@ -115,8 +116,15 @@ export function useWebSocket() {
   }, [])
 
   const disconnect = useCallback(() => {
-    wsRef.current?.close()
-    wsRef.current = null
+    if (wsRef.current) {
+      // Clear handlers before closing to prevent stale callbacks
+      wsRef.current.onopen = null
+      wsRef.current.onmessage = null
+      wsRef.current.onerror = null
+      wsRef.current.onclose = null
+      wsRef.current.close()
+      wsRef.current = null
+    }
   }, [])
 
   useEffect(() => {

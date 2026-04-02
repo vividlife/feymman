@@ -164,18 +164,14 @@ describe('useWebSocket', () => {
       expect(mockSend).toHaveBeenCalled()
     })
 
-    it('logs error when WebSocket is not connected', () => {
+    it('silently drops audio when WebSocket is not connected', () => {
       const { result } = renderHook(() => useWebSocket())
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       act(() => {
         result.current.sendAudioMessage('someAudioData')
       })
 
       expect(mockSend).not.toHaveBeenCalled()
-      expect(consoleSpy).toHaveBeenCalledWith('[WS] Cannot send audio - WebSocket not connected')
-
-      consoleSpy.mockRestore()
     })
   })
 
