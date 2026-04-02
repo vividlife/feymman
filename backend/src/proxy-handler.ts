@@ -34,14 +34,13 @@ export class ProxyHandler {
       throw new Error('DASHSCOPE_API_KEY not configured')
     }
 
-    console.log('[ProxyHandler] API Key loaded:', apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT LOADED')
+    console.log('[ProxyHandler] API Key configured:', !!apiKey)
     console.log('[ProxyHandler] Connecting to Qwen:', QWEN_WS_URL)
 
     return new Promise((resolve, reject) => {
       const headers = {
         Authorization: `Bearer ${apiKey}`,
       }
-      console.log('[ProxyHandler] Headers:', JSON.stringify(headers))
 
       this.serverWs = new WebSocket(QWEN_WS_URL, { headers })
 
@@ -110,6 +109,14 @@ export class ProxyHandler {
 
     try {
       const event = JSON.parse(data as string)
+
+      // Track responding state for speech interruption
+      if (event.type === 'response.created') {
+        this.isResponsing = true
+      } else if (event.type === 'response.done') {
+        this.isResponsing = false
+      }
+
       this.clientWs.send(JSON.stringify(event))
     } catch {
       this.clientWs.send(data as string)
