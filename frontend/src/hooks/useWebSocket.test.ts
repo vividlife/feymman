@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useSessionStore } from '@/stores/sessionStore'
 
@@ -54,17 +55,16 @@ const triggerOpen = () => {
   eventHandlers.open.forEach(handler => handler({ type: 'open' }))
 }
 
-const triggerMessage = (data: object) => {
-  eventHandlers.message.forEach(handler => handler({ data: JSON.stringify(data) }))
-}
-
-const triggerError = (error?: Error) => {
-  eventHandlers.error.forEach(handler => handler(error || new Error('Connection error')))
-}
-
-const triggerClose = () => {
-  eventHandlers.close.forEach(handler => handler({ type: 'close' }))
-}
+// Helper functions available for future use
+// const triggerMessage = (data: object) => {
+//   eventHandlers.message.forEach(handler => handler({ data: JSON.stringify(data) }))
+// }
+// const triggerError = (error?: Error) => {
+//   eventHandlers.error.forEach(handler => handler(error || new Error('Connection error')))
+// }
+// const triggerClose = () => {
+//   eventHandlers.close.forEach(handler => handler({ type: 'close' }))
+// }
 
 describe('useWebSocket', () => {
   beforeEach(() => {
@@ -174,42 +174,6 @@ describe('useWebSocket', () => {
 
       expect(mockSend).not.toHaveBeenCalled()
       expect(consoleSpy).toHaveBeenCalledWith('[WS] Cannot send audio - WebSocket not connected')
-
-      consoleSpy.mockRestore()
-    })
-  })
-
-  describe('commitAudio', () => {
-    it('sends commit message when WebSocket is open', () => {
-      const { result } = renderHook(() => useWebSocket())
-
-      act(() => {
-        result.current.connect()
-      })
-
-      act(() => {
-        triggerOpen()
-      })
-
-      mockSend.mockClear()
-
-      act(() => {
-        result.current.commitAudio()
-      })
-
-      expect(mockSend).toHaveBeenCalled()
-    })
-
-    it('logs error when WebSocket is not connected', () => {
-      const { result } = renderHook(() => useWebSocket())
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      act(() => {
-        result.current.commitAudio()
-      })
-
-      expect(mockSend).not.toHaveBeenCalled()
-      expect(consoleSpy).toHaveBeenCalledWith('[WS] Cannot commit audio - WebSocket not connected')
 
       consoleSpy.mockRestore()
     })

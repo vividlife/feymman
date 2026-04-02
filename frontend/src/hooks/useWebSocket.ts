@@ -115,19 +115,6 @@ export function useWebSocket() {
     }))
   }, [])
 
-  // 提交音频缓冲区
-  const commitAudio = useCallback(() => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      console.error('[WS] Cannot commit audio - WebSocket not connected')
-      return
-    }
-
-    console.log('[WS] Committing audio buffer')
-    wsRef.current.send(JSON.stringify({
-      type: 'input_audio_buffer.commit',
-    }))
-  }, [])
-
   const disconnect = useCallback(() => {
     wsRef.current?.close()
     wsRef.current = null
@@ -139,5 +126,5 @@ export function useWebSocket() {
     }
   }, [disconnect])
 
-  return { connect, disconnect, sendAudioMessage, commitAudio }
+  return { connect, disconnect, sendAudioMessage }
 }

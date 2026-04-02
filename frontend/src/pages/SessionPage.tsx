@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -18,65 +18,44 @@ export default function SessionPage() {
     subject,
     messages,
     currentTranscript,
-    setProblemText,
-    setSubject,
   } = useSessionStore()
 
-  const { connect, disconnect, sendAudioMessage, commitAudio } = useWebSocket()
-  const { isRecording, startRecording, stopRecording, getAudioBase64 } = useAudioRecorder()
+  const { connect, disconnect, sendAudioMessage } = useWebSocket()
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder()
 
-  // 从 sessionStorage 恢复数据
-  useEffect(() => {
-    const savedProblem = sessionStorage.getItem('problemText')
-    const savedSubject = sessionStorage.getItem('subject')
-    if (savedProblem) setProblemText(savedProblem)
-    if (savedSubject) setSubject(savedSubject)
-  }, [setProblemText, setSubject])
-
-  // 自动连接 - 只在 problemText 改变且没有 sessionId 时连接
+  // Auto-connect when problemText is available
   useEffect(() => {
     if (!sessionId && problemText) {
-      console.log('[SessionPage] Connecting WebSocket...')
       connect()
     }
-  }, [problemText])
+  }, [sessionId, problemText, connect])
 
-  // 组件卸载时断开连接
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('[SessionPage] Unmounting, disconnecting...')
       disconnect()
     }
-  }, [])
+  }, [disconnect])
 
-  const handleToggleRecording = async () => {
-    if (isRecording) {
-      // 停止录音并发送
-      await stopRecording()
-      const base64 = await getAudioBase64()
-      if (base64) {
-        console.log('[SessionPage] Sending audio, length:', base64.length)
-        sendAudioMessage(base64)
-        // 提交音频缓冲区
-        commitAudio()
-      }
-    } else {
-      // 开始录音
-      await startRecording()
-    }
-  }
-
-  const handleEnd = () => {
+  const handleToggleRecording = useCallback(async () => {
     if (isRecording) {
       stopRecording()
+    } else {
+      await startRecording((pcmBase64) => {
+        sendAudioMessage(pcmBase64)
+      })
     }
+  }, [isRecording, startRecording, stopRecording, sendAudioMessage])
+
+  const handleEnd = useCallback(() => {
+    stopRecording()
     disconnect()
     navigate('/result')
-  }
+  }, [stopRecording, disconnect, navigate])
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 顶部：题目信息 */}
+      {/* Header */}
       <div className="bg-white shadow-sm p-4">
         <div className="container mx-auto max-w-2xl">
           <div className="flex items-center justify-between">
@@ -94,7 +73,7 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {/* 中部：对话流 */}
+      {/* Conversation */}
       <div className="flex-1 container mx-auto max-w-2xl p-4 overflow-y-auto">
         <div className="space-y-4 mb-4">
           {messages.map((msg) => (
@@ -102,26 +81,27 @@ export default function SessionPage() {
           ))}
         </div>
         {currentTranscript && (
-          <div className="flex justify-end">
-            <div className="bg-blue-100 text-blue-800 rounded-2xl rounded-br-md px-4 py-2 max-w-[80%]">
+          <div className="flex justify-start">
+            <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-bl-md px-4 py-2 max-w-[80%]">
               <p className="text-sm">{currentTranscript}</p>
-              <p className="text-xs text-blue-400 mt-1">转写中...</p>
+              <p className="text-xs text-gray-400 mt-1">AI 回复中...</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* 理解进度 */}
+      {/* Understanding tracker */}
       <div className="container mx-auto max-w-2xl px-4">
         <UnderstandingTracker />
       </div>
 
-      {/* 底部：控制区 */}
+      {/* Controls */}
       <div className="bg-white border-t p-4">
         <div className="container mx-auto max-w-2xl flex justify-center gap-4">
           <AudioRecorder
             isRecording={isRecording}
             onToggleRecording={handleToggleRecording}
+            disabled={state !== 'listening' && state !== 'responding' && !isRecording}
           />
           <Button variant="outline" onClick={handleEnd}>
             结束本轮

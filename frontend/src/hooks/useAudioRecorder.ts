@@ -2,111 +2,66 @@ import { useState, useRef, useCallback } from 'react'
 
 export interface UseAudioRecorderReturn {
   isRecording: boolean
-  audioBlob: Blob | null
-  startRecording: () => Promise<void>
-  stopRecording: () => Promise<void>
-  getAudioBase64: () => Promise<string | null>
+  startRecording: (onPcmData: (base64: string) => void) => Promise<void>
+  stopRecording: () => void
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
-  const stopResolveRef = useRef<(() => void) | null>(null)
+  const contextRef = useRef<AudioContext | null>(null)
+  const processorRef = useRef<ScriptProcessorNode | null>(null)
 
-  const startRecording = useCallback(async () => {
-    try {
-      console.log('[AudioRecorder] Requesting microphone permission...')
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      console.log('[AudioRecorder] Microphone permission granted, stream:', stream.id)
+  const startRecording = useCallback(async (onPcmData: (base64: string) => void) => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    })
+    streamRef.current = stream
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm'
-      console.log('[AudioRecorder] Using mimeType:', mimeType)
+    const context = new AudioContext({ sampleRate: 16000 })
+    contextRef.current = context
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType })
-      streamRef.current = stream
-      console.log('[AudioRecorder] MediaRecorder created, state:', mediaRecorder.state)
+    const source = context.createMediaStreamSource(stream)
+    // Buffer size 4096 at 16kHz = ~256ms chunks
+    const processor = context.createScriptProcessor(4096, 1, 1)
+    processorRef.current = processor
 
-      mediaRecorder.ondataavailable = (event) => {
-        console.log('[AudioRecorder] ondataavailable, size:', event.data.size)
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
+    processor.onaudioprocess = (e) => {
+      const float32 = e.inputBuffer.getChannelData(0)
+      // Convert float32 [-1,1] to int16 PCM
+      const int16 = new Int16Array(float32.length)
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]))
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
       }
-
-      mediaRecorder.onstart = () => {
-        console.log('[AudioRecorder] MediaRecorder started')
+      // Convert to base64
+      const bytes = new Uint8Array(int16.buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i])
       }
-
-      mediaRecorder.onstop = () => {
-        console.log('[AudioRecorder] MediaRecorder stopped, chunks:', audioChunksRef.current.length)
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        console.log('[AudioRecorder] Created blob, size:', blob.size)
-        setAudioBlob(blob)
-        audioChunksRef.current = []
-        streamRef.current?.getTracks().forEach(track => track.stop())
-        // 调用 stopRecording 中设置的 resolve
-        if (stopResolveRef.current) {
-          stopResolveRef.current()
-          stopResolveRef.current = null
-        }
-      }
-
-      mediaRecorder.onerror = (event) => {
-        console.error('[AudioRecorder] MediaRecorder error:', event)
-      }
-
-      mediaRecorderRef.current = mediaRecorder
-      mediaRecorder.start(1000)
-      setIsRecording(true)
-      console.log('[AudioRecorder] Recording started successfully')
-    } catch (error) {
-      console.error('[AudioRecorder] Failed to start recording, error:', error)
-      console.error('[AudioRecorder] Error name:', error?.name)
-      console.error('[AudioRecorder] Error message:', error?.message)
-      throw error
+      onPcmData(btoa(binary))
     }
+
+    source.connect(processor)
+    processor.connect(context.destination)
+    setIsRecording(true)
   }, [])
 
-  const stopRecording = useCallback(async () => {
-    return new Promise<void>((resolve) => {
-      if (mediaRecorderRef.current && isRecording) {
-        stopResolveRef.current = resolve
-        setIsRecording(false)
-        mediaRecorderRef.current.stop()
-      } else {
-        resolve()
-      }
-    })
-  }, [isRecording])
+  const stopRecording = useCallback(() => {
+    processorRef.current?.disconnect()
+    processorRef.current = null
+    contextRef.current?.close()
+    contextRef.current = null
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    setIsRecording(false)
+  }, [])
 
-  const getAudioBase64 = useCallback(async (): Promise<string | null> => {
-    if (!audioBlob) return null
-
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = reader.result as string
-        const base64Data = base64.split(',')[1]
-        resolve(base64Data)
-      }
-      reader.onerror = () => {
-        console.error('[AudioRecorder] FileReader error')
-        reject(new Error('Failed to read audio blob'))
-      }
-      reader.readAsDataURL(audioBlob)
-    })
-  }, [audioBlob])
-
-  return {
-    isRecording,
-    audioBlob,
-    startRecording,
-    stopRecording,
-    getAudioBase64,
-  }
+  return { isRecording, startRecording, stopRecording }
 }
