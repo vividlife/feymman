@@ -10,6 +10,7 @@ export default function ResultPage() {
     understandingLevel,
     understoodPoints,
     unclearPoints,
+    messages,
     reset,
   } = useSessionStore()
 
@@ -48,18 +49,24 @@ export default function ResultPage() {
           </CardContent>
         </Card>
 
-        {/* AI 最终复述 */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>这是我现在对这道题的理解</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-700 italic">
-              "题目要求我们求解...，用户讲解了使用...方法，首先...，然后...，最后...
-              我理解了这道题的整体思路和方法选择的原因。"
-            </p>
-          </CardContent>
-        </Card>
+        {/* 对话回顾 */}
+        {messages.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>对话回顾</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {messages.slice(-10).map((msg, i) => (
+                  <div key={i} className={`text-sm ${msg.role === 'user' ? 'text-blue-700' : 'text-gray-700'}`}>
+                    <span className="font-medium">{msg.role === 'user' ? '你: ' : 'AI: '}</span>
+                    {msg.content}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 已讲清楚 */}
         {understoodPoints.length > 0 && (
