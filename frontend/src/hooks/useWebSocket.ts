@@ -17,8 +17,9 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
     setState('connecting')
-    console.log('[WS] Connecting to ws://localhost:8082...')
-    const ws = new WebSocket(`ws://localhost:8082`)
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8082'
+    console.log(`[WS] Connecting to ${wsUrl}...`)
+    const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
       console.log('[WS] Connected!')
@@ -64,6 +65,9 @@ export function useWebSocket() {
             updateCurrentTranscript('')
           }
           setState('listening')
+          break
+        case 'response.audio.delta':
+          useSessionStore.getState().addAudioChunk(data.delta)
           break
         case 'conversation.item.input_audio_transcription.completed':
           addMessage({

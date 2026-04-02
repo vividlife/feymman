@@ -40,6 +40,11 @@ export interface SessionStore {
   addUnclearPoint: (point: string) => void
   removeUnclearPoint: (point: string) => void
   reset: () => void
+
+  // Audio playback
+  audioQueue: string[]
+  addAudioChunk: (chunk: string) => void
+  clearAudioQueue: () => void
 }
 
 const initialState = {
@@ -53,6 +58,7 @@ const initialState = {
   understandingLevel: 0,
   understoodPoints: [],
   unclearPoints: [],
+  audioQueue: [],
 }
 
 export const useSessionStore = create<SessionStore>((set) => ({
@@ -90,4 +96,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
     })),
 
   reset: () => set(initialState),
+
+  addAudioChunk: (chunk) =>
+    set((state) => ({
+      audioQueue: [...state.audioQueue, chunk],
+    })),
+  clearAudioQueue: () => set({ audioQueue: [] }),
 }))

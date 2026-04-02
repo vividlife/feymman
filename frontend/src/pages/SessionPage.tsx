@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -22,6 +22,46 @@ export default function SessionPage() {
 
   const { connect, disconnect, sendAudioMessage } = useWebSocket()
   const { isRecording, startRecording, stopRecording } = useAudioRecorder()
+
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const nextPlayTimeRef = useRef<number>(0)
+  const { audioQueue, clearAudioQueue } = useSessionStore()
+
+  useEffect(() => {
+    if (audioQueue.length === 0) return
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext({ sampleRate: 24000 })
+    }
+    const ctx = audioContextRef.current
+
+    const chunks = [...audioQueue]
+    clearAudioQueue()
+
+    for (const chunk of chunks) {
+      const binary = atob(chunk)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      const int16 = new Int16Array(bytes.buffer)
+      const float32 = new Float32Array(int16.length)
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768
+      }
+
+      const buffer = ctx.createBuffer(1, float32.length, 24000)
+      buffer.getChannelData(0).set(float32)
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+      source.connect(ctx.destination)
+
+      const now = ctx.currentTime
+      const startTime = Math.max(now, nextPlayTimeRef.current)
+      source.start(startTime)
+      nextPlayTimeRef.current = startTime + buffer.duration
+    }
+  }, [audioQueue, clearAudioQueue])
 
   // Auto-connect when problemText is available
   useEffect(() => {
