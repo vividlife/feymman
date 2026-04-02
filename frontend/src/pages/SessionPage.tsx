@@ -109,6 +109,7 @@ export default function SessionPage() {
               {state === 'listening' && '等待你讲解...'}
               {state === 'responding' && 'AI 回复中...'}
               {state === 'connecting' && '连接中...'}
+              {state === 'error' && '连接失败'}
               {state === 'idle' && '未连接'}
             </span>
           </div>

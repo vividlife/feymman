@@ -14,7 +14,7 @@ export function useWebSocket() {
   } = useSessionStore()
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) return
 
     setState('connecting')
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8082'
@@ -40,14 +40,13 @@ export function useWebSocket() {
 
       switch (data.type) {
         case 'session.created':
-          setSessionId(data.sessionId)
+          // Our backend sends sessionId; Qwen sends session.id — handle both
+          if (data.sessionId) {
+            setSessionId(data.sessionId)
+          }
           setState('listening')
           break
         case 'session.updated':
-          // 服务器返回的是 session.updated，包含完整的 session 对象
-          if (data.session?.id) {
-            setSessionId(data.session.id)
-          }
           setState('listening')
           break
         case 'response.audio_transcript.delta':
