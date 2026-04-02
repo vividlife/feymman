@@ -1,5 +1,6 @@
 import WebSocket from 'ws'
 
+const DEBUG = process.env.DEBUG === 'true'
 const QWEN_WS_URL = 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen3.5-omni-plus-realtime'
 
 export interface ProxyHandlerOptions {
@@ -33,8 +34,8 @@ export class ProxyHandler {
       throw new Error('DASHSCOPE_API_KEY not configured')
     }
 
-    console.log('[ProxyHandler] API Key configured:', !!apiKey)
-    console.log('[ProxyHandler] Connecting to Qwen:', QWEN_WS_URL)
+    if (DEBUG) console.log('[ProxyHandler] API Key configured:', !!apiKey)
+    if (DEBUG) console.log('[ProxyHandler] Connecting to Qwen:', QWEN_WS_URL)
 
     return new Promise((resolve, reject) => {
       const headers = {
@@ -44,13 +45,13 @@ export class ProxyHandler {
       this.serverWs = new WebSocket(QWEN_WS_URL, { headers })
 
       this.serverWs.on('open', () => {
-        console.log('[ProxyHandler] Connected to Qwen!')
+        if (DEBUG) console.log('[ProxyHandler] Connected to Qwen!')
         this.sendSessionConfig()
         resolve()
       })
 
       this.serverWs.on('message', (data) => {
-        console.log('[ProxyHandler] Received from Qwen:', JSON.stringify(data).substring(0, 100))
+        if (DEBUG) console.log('[ProxyHandler] Received from Qwen:', JSON.stringify(data).substring(0, 100))
         this.forwardToClient(data)
       })
 
@@ -60,7 +61,7 @@ export class ProxyHandler {
       })
 
       this.serverWs.on('close', (code, reason) => {
-        console.log('[ProxyHandler] Qwen connection closed. Code:', code, 'Reason:', reason?.toString())
+        if (DEBUG) console.log('[ProxyHandler] Qwen connection closed. Code:', code, 'Reason:', reason?.toString())
         // Only close client if not already closed
         if (this.clientWs.readyState === WebSocket.OPEN) {
           this.clientWs.close()
@@ -130,9 +131,9 @@ export class ProxyHandler {
 
       // Log audio messages
       if (message.type === 'input_audio_buffer.append') {
-        console.log('[ProxyHandler] Received audio buffer, audio length:', message.audio?.length)
+        if (DEBUG) console.log('[ProxyHandler] Received audio buffer, audio length:', message.audio?.length)
       } else {
-        console.log('[ProxyHandler] Forwarding message:', message.type)
+        if (DEBUG) console.log('[ProxyHandler] Forwarding message:', message.type)
       }
 
       // 处理打断
@@ -144,7 +145,7 @@ export class ProxyHandler {
       }
       this.serverWs.send(data as string)
     } catch {
-      console.log('[ProxyHandler] Forwarding raw binary data')
+      if (DEBUG) console.log('[ProxyHandler] Forwarding raw binary data')
       this.serverWs.send(data as string)
     }
   }

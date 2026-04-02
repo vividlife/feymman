@@ -18,13 +18,10 @@ export function useWebSocket() {
 
     setState('connecting')
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8082'
-    console.log(`[WS] Connecting to ${wsUrl}...`)
     const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
-      console.log('[WS] Connected!')
       // 初始化会话
-      console.log('[WS] Sending session.init:', { problemText, subject })
       ws.send(JSON.stringify({
         type: 'session.init',
         problemText,
@@ -33,18 +30,15 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (event) => {
-      console.log('[WS] Received:', event.data)
       const data = JSON.parse(event.data)
 
       switch (data.type) {
         case 'session.created':
-          console.log('[WS] Session created:', data.sessionId)
           setSessionId(data.sessionId)
           setState('listening')
           break
         case 'session.updated':
           // 服务器返回的是 session.updated，包含完整的 session 对象
-          console.log('[WS] Session updated, id:', data.session?.id)
           if (data.session?.id) {
             setSessionId(data.session.id)
           }
@@ -78,11 +72,9 @@ export function useWebSocket() {
           })
           break
         case 'response.created':
-          console.log('[WS] AI started responding')
           setState('responding')
           break
         case 'response.done':
-          console.log('[WS] AI finished responding')
           setState('listening')
           break
         case 'error':
@@ -98,7 +90,6 @@ export function useWebSocket() {
     }
 
     ws.onclose = () => {
-      console.log('[WS] Connection closed')
       setState('idle')
     }
 
@@ -112,7 +103,6 @@ export function useWebSocket() {
       return
     }
 
-    console.log('[WS] Sending audio data, length:', audioBase64.length)
     wsRef.current.send(JSON.stringify({
       type: 'input_audio_buffer.append',
       audio: audioBase64,
