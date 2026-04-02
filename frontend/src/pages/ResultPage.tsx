@@ -22,7 +22,6 @@ export default function ResultPage() {
 
   const handleNewProblem = () => {
     reset()
-    sessionStorage.clear()
     navigate('/create')
   }
 

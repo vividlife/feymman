@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useSessionStore } from '@/stores/sessionStore'
 
 const SUBJECTS = ['数学', '物理', '化学', '通用']
 const GOALS = [
@@ -16,13 +17,13 @@ export default function CreateTaskPage() {
   const [problemText, setProblemText] = useState('')
   const [subject, setSubject] = useState('数学')
   const [goal, setGoal] = useState('understand_how')
+  const { setProblemText: setStoreProblem, setSubject: setStoreSubject, setGoal: setStoreGoal } = useSessionStore()
 
   const handleStart = () => {
     if (!problemText.trim()) return
-    // 通过 sessionStorage 传递数据（简单方案）
-    sessionStorage.setItem('problemText', problemText)
-    sessionStorage.setItem('subject', subject)
-    sessionStorage.setItem('goal', goal)
+    setStoreProblem(problemText)
+    setStoreSubject(subject)
+    setStoreGoal(goal)
     navigate('/session')
   }
 
