@@ -1,5 +1,4 @@
 import WebSocket from 'ws'
-import { sessionManager } from './session-manager.js'
 
 const QWEN_WS_URL = 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen3.5-omni-plus-realtime'
 
@@ -55,7 +54,7 @@ export class ProxyHandler {
         this.forwardToClient(data)
       })
 
-      this.serverWs.on('error', (err) => {
+      this.serverWs.on('error', (err: any) => {
         console.error('[ProxyHandler] Server WS error:', err.message, err.code)
         reject(err)
       })
